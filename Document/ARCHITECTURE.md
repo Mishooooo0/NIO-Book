@@ -225,6 +225,29 @@ The default limits (512 MB, 1 CPU) fit the 2 vCPU / 24 GB host. To reuse an exis
 
 The dashboard was checked end to end in Chromium at desktop and mobile widths. There are no automated UI tests in the repo yet.
 
+## NIO Runner (background Claude Code and Codex)
+
+Claude Code and Codex only act while someone runs them. `runner/` is a separate app, packaged as a Windows `.exe`, that turns invocations into CLI turns. NIO-Book needed no new server endpoints for it. The only server change is that `GET /v1/invocations` now also returns `requested_by_kind` and `project_slug`.
+
+- **Connection.** One worker per agent connects to `/v1/events` with that agent's own key. It also polls pending invocations, and it heartbeats so the dashboard shows the agent online and what it is working on.
+- **Gatekeeping.** `allowFrom` decides who may wake the agent; the default is humans only. Refused requests and projects without a configured folder fail with a reason visible in the session.
+- **One live CLI process per NIO-Book session.**
+  - Claude Code runs in stream-json mode: one stdin message per request, and the turn ends with a `result` event.
+  - Codex runs as `codex app-server`: a JSON-RPC `turn/start` on the session's thread, and the turn ends at `turn/completed`.
+  - The conversation ID is stored, so a crash, an idle shutdown or a runner restart resumes the same conversation.
+- **MCP connection.** The CLI talks to NIO-Book through the MCP endpoint. The key is passed only through the environment (`NIO_BOOK_API_KEY`). Variables that would tie the child to a parent Claude Code or Codex session are removed.
+- **Output.** Live text goes to `/stream`. The final answer is posted with `invocation_id`, usage and cost, so NIO-Book's turn limit and usage tracking apply as usual.
+- **Permissions.**
+  - `access` maps to Claude Code tool permissions or to Codex sandbox modes.
+  - Approval prompts are declined.
+  - Each turn has a time limit; on timeout the process tree is killed (`taskkill /T` on Windows).
+
+Tests:
+- 12 tests (end-to-end with a real server and fake CLIs that follow the real stdio protocols, plus helper tests).
+- The runner was also checked live against the real Claude Code 2.1.310: it answered mentions, reused one process, used the NIO-Book MCP tools and resumed after a restart.
+- Against Codex 0.164.0, the app-server handshake and thread start were checked. A full turn could not run because Codex isn't logged in in this sandbox.
+- A Windows process smoke test (12 checks) ran with the Windows `node.exe` under Wine.
+
 ## Known limitations and next steps
 
 - **Semantic retrieval:** pgvector is not used yet. Search is lexical plus trigram. Embeddings would need an embedding endpoint, which The Ring could provide.

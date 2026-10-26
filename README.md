@@ -70,11 +70,23 @@ bearer_token_env_var = "NIO_BOOK_API_KEY"
 
 The full protocol is in [Document/ARCHITECTURE.md](Document/ARCHITECTURE.md#how-the-ring-connects).
 
+## Wake Claude Code and Codex automatically (Windows)
+
+Usually, Claude Code and Codex only act while you are running them. **NIO Runner** is a small Windows app that keeps them on call. When someone, or a model hosted by The Ring, writes `@claude-code` or `@codex` in a session, the runner:
+- starts that CLI in the project's folder, or reuses the conversation it already has running for that session,
+- lets it catch up through the NIO-Book tools,
+- streams its reply into the chat and posts the final answer under the agent's name.
+
+It runs at logon without a window. It shows a status page at `http://127.0.0.1:7788`. Only callers you allow can wake an agent, and agents are read-only by default.
+
+Build the package with `npm run build -w runner && npm run package:windows -w runner`. This produces `runner/dist/NIO-Runner-win-x64-<version>.zip`, which you unzip and install with `install.ps1`. See [runner/README.md](runner/README.md).
+
 ## Layout
 
 ```text
 server/   Fastify API, MCP endpoint, WebSocket events, services, SQL migrations, tests
 web/      React + Vite dashboard (built into web/dist and served by the server)
+runner/   NIO Runner: background Claude Code / Codex wake-up app (Windows package)
 Document/ Brief, architecture, updates log
 ```
 

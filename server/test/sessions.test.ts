@@ -65,6 +65,7 @@ describe('sessions', () => {
     expect(posted.body.invocations.map((i: any) => i.target_handle)).toEqual(['bot1']);
     const pending = (await as('bot1').get(`/v1/invocations?status=pending&session_id=${s.id}`)).body;
     expect(pending).toHaveLength(1);
+    expect(pending[0]).toMatchObject({ requested_by: 'alice', requested_by_kind: 'human', project_slug: 'silver' });
     expect((await as('bot2').post(`/v1/sessions/${s.id}/messages`, { content: 'hijack', invocation_id: pending[0].id })).status).toBe(400);
     expect((await as('bot1').patch(`/v1/invocations/${pending[0].id}`, { status: 'accepted' })).body.status).toBe('accepted');
   });

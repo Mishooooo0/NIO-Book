@@ -655,9 +655,10 @@ export async function invokeParticipant(ctx: Ctx, actor: Actor, sessionId: strin
 export async function listInvocations(ctx: Ctx, actor: Actor, filter: { status?: string; session_id?: string } = {}) {
   requireScope(actor, 'sessions:read');
   const { rows } = await ctx.db.query(
-    `SELECT i.id, i.session_id, s.title AS session_title, s.project_id, i.mode, i.prompt, i.status, i.task_id,
-            r.handle AS requested_by, i.created_at, i.expires_at, i.response_message_id
-       FROM invocations i JOIN sessions s ON s.id = i.session_id JOIN participants r ON r.id = i.requested_by
+    `SELECT i.id, i.session_id, s.title AS session_title, s.project_id, pr.slug AS project_slug, i.mode, i.prompt, i.status,
+            i.task_id, r.handle AS requested_by, r.kind AS requested_by_kind, i.created_at, i.expires_at, i.response_message_id
+       FROM invocations i JOIN sessions s ON s.id = i.session_id JOIN projects pr ON pr.id = s.project_id
+       JOIN participants r ON r.id = i.requested_by
       WHERE i.target_id = $1 AND ($2::text IS NULL OR i.status = $2) AND ($3::uuid IS NULL OR i.session_id = $3)
       ORDER BY i.created_at LIMIT 200`,
     [actor.participant.id, filter.status ?? null, filter.session_id ?? null],

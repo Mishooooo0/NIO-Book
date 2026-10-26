@@ -49,3 +49,22 @@ Tool: Claude Code — Developer: Meshal Khaled
 **Environment:** Installed locked npm dependencies and prepared local PostgreSQL 17.11 with database migrations. Verified repeatable setup without resetting development data. Saved reusable installation and startup instructions in the cloud environment draft; these are external environment settings, not repository files. Environment publication remains a separate user action. No backend source, dependency declarations, or lockfiles changed in this update.
 
 Tool: Codex — Developer: Justin Owens
+
+## 2026-10-27 00:16 (Asia/Riyadh)
+
+**Update:** Added NIO Runner, a Windows app that wakes Claude Code and Codex in the background when they are @mentioned in NIO-Book, for example by The Ring.
+
+- Each NIO-Book session gets its own long-running CLI process, so the conversation continues across mentions. Claude Code runs in stream-json mode and Codex runs as `codex app-server`.
+- The runner restarts a crashed CLI and resumes its conversation. It also resumes after an idle shutdown or a runner restart.
+- Live output streams into the session, and answers are posted under the agent's identity with token usage and cost.
+- Safeguards: `allowFrom` limits who can wake each agent, access is read-only by default, approval prompts are declined, and each turn has a time limit.
+- Packaged as single-file Windows executables, one console version and one without a window. Includes a per-user logon task installer, Start menu shortcuts and a local status page.
+- Server: the invocation list now also returns `requested_by_kind` and `project_slug`.
+
+**Validation:**
+- 27 server tests and 12 runner tests (end-to-end plus helpers) passed.
+- Checked live against the real Claude Code 2.1.310: it answered mentions, reused one process, used the NIO-Book MCP tools and resumed after a restart.
+- Codex 0.164.0 app-server handshake checked. A full Codex turn was not run because Codex is not logged in here.
+- The Windows `.exe` ran under Wine 9. The Windows process smoke test passed 12 of 12 checks. The PowerShell installer was not run on real Windows.
+
+Tool: Claude Code — Developer: Meshal Khaled

@@ -1,0 +1,28 @@
+{
+  "name": "@nio-book/runner",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Background runner that wakes Claude Code and Codex when they are invoked in NIO-Book",
+  "type": "module",
+  "bin": {
+    "nio-runner": "dist/main.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "package:windows": "node scripts/build-windows.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "esbuild": "^0.28.2",
+    "postject": "^1.0.0-alpha.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  }
+}
