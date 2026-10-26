@@ -158,6 +158,7 @@ export async function buildApp(ctx: Ctx): Promise<FastifyInstance> {
         const result = await sessions.postMessage(ctx, req.actor, req.params.id, body(req));
         return reply.status(result.duplicate ? 200 : 201).send(result);
       });
+      api.post<RT>('/sessions/:id/stream', async (req: Req) => sessions.streamDelta(ctx, req.actor, req.params.id, body(req)));
       api.get<RT>('/sessions/:id/checkpoints', async (req: Req) => sessions.listCheckpoints(ctx, req.actor, req.params.id));
       api.post<RT>('/sessions/:id/checkpoints', async (req: Req, reply) =>
         reply.status(201).send(await sessions.createCheckpoint(ctx, req.actor, req.params.id, body(req))),
@@ -230,7 +231,7 @@ export async function buildApp(ctx: Ctx): Promise<FastifyInstance> {
   // Dashboard (built SPA). Unknown non-API paths fall back to index.html.
   const webDir = ctx.config.webDir ? path.resolve(ctx.config.webDir) : null;
   if (webDir && fs.existsSync(path.join(webDir, 'index.html'))) {
-    await app.register(fastifyStatic, { root: webDir, prefix: '/', wildcard: false });
+    await app.register(fastifyStatic, { root: webDir, prefix: '/' });
     app.setNotFoundHandler((req, reply) => {
       if (req.method === 'GET' && !req.url.startsWith('/v1') && !req.url.startsWith('/mcp')) return reply.sendFile('index.html');
       return reply.status(404).send({ error: { code: 'not_found', message: 'Route not found' } });

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { WebSocket } from 'ws';
-import { authenticate, type Actor } from './auth.js';
+import { authenticate, isAdmin, type Actor } from './auth.js';
 import { requireProjectRole, type Ctx } from './context.js';
 import type { NioEvent } from './events.js';
 import { accessSession } from './services/sessions.js';
@@ -51,7 +51,8 @@ export function registerEvents(app: FastifyInstance, ctx: Ctx) {
         if (sessions.has(event.session_id) || (viaProject && (await canSeeSession(event.session_id)))) send({ type: 'event', event });
         return;
       }
-      if (event.project_id === null || projects.has(event.project_id)) send({ type: 'event', event });
+      // Events without a project (participant presence) could reveal participants from other projects.
+      if (event.project_id === null ? isAdmin(actor) : projects.has(event.project_id)) send({ type: 'event', event });
     };
 
     socket.on('message', async (raw) => {

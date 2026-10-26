@@ -1,0 +1,41 @@
+# NIO-Book: Postgres + server/dashboard.
+# If The Ring host already runs PostgreSQL, drop the `postgres` service and point DATABASE_URL at it.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nio
+      POSTGRES_USER: nio
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nio -d nio"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Not published: only reachable on the internal compose network.
+
+  nio-book:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://nio:${POSTGRES_PASSWORD}@postgres:5432/nio
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      NIO_RATE_LIMIT_PER_MINUTE: ${NIO_RATE_LIMIT_PER_MINUTE:-300}
+      NIO_EXPORT_INTERVAL_SECONDS: ${NIO_EXPORT_INTERVAL_SECONDS:-300}
+    volumes:
+      - nio-data:/data
+    # Bind to localhost; put a TLS reverse proxy in front for remote agents.
+    ports:
+      - "127.0.0.1:${NIO_PORT:-8787}:8787"
+    mem_limit: 512m
+    cpus: 1.0
+
+volumes:
+  pgdata:
+  nio-data:

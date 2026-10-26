@@ -156,6 +156,8 @@ describe('websocket events', () => {
     });
     await as('alice').post(`/v1/sessions/${s.id}/messages`, { content: 'live hello' });
     await expect.poll(() => events.find((e) => e.type === 'message.created')?.data.content).toBe('live hello');
+    expect((await as('bot1').post(`/v1/sessions/${s.id}/stream`, { stream_id: 'st1', delta: 'partial ' })).status).toBe(200);
+    await expect.poll(() => events.find((e) => e.type === 'message.delta')?.data).toMatchObject({ stream_id: 'st1', delta: 'partial ', author_handle: 'bot1' });
     ws.close();
 
     const bad = new WebSocket(url);

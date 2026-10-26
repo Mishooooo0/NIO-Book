@@ -695,3 +695,34 @@ export async function expireInvocations(ctx: Ctx): Promise<number> {
   return rowCount ?? 0;
 }
 
+
+// ---------------------------------------------------------------- streaming
+
+export const StreamDeltaInput = z.object({
+  stream_id: z.string().min(1).max(100),
+  delta: z.string().max(20000),
+});
+
+/**
+ * Broadcasts a partial output chunk to live subscribers without persisting it. The runtime then
+ * posts the full message with metadata.stream_id so clients replace the stream with the stored message.
+ */
+export async function streamDelta(ctx: Ctx, actor: Actor, sessionId: string, input: z.input<typeof StreamDeltaInput>) {
+  const data = StreamDeltaInput.parse(input);
+  const access = await accessSession(ctx.db, actor, sessionId);
+  assertCanPost(access, actor);
+  if (access.session.status !== 'active') throw conflict(`Session is ${access.session.status}`);
+  ctx.bus.publish({
+    type: 'message.delta',
+    project_id: access.session.project_id,
+    session_id: sessionId,
+    data: {
+      stream_id: data.stream_id,
+      author_id: actor.participant.id,
+      author_handle: actor.participant.handle,
+      author_kind: actor.participant.kind,
+      delta: redactSecrets(data.delta).text,
+    },
+  });
+  return { ok: true };
+}
