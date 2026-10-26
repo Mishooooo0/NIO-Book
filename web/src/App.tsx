@@ -5,7 +5,9 @@ import { MemoryExplorer } from './MemoryExplorer';
 import { ParticipantsAdmin } from './ParticipantsAdmin';
 import { RightPanel } from './RightPanel';
 import { SessionHistory } from './SessionHistory';
-import { Modal } from './ui';
+import { Avatar, Modal } from './ui';
+import { Icon } from './Icon';
+import { Overview } from './Overview';
 
 type View = { kind: 'session'; id: string } | { kind: 'memory' } | { kind: 'history' } | { kind: 'participants' } | { kind: 'none' };
 
@@ -31,6 +33,7 @@ function useTheme() {
 }
 
 export function App() {
+  const [theme, toggleTheme] = useTheme();
   const [me, setMe] = useState<Me | null>(null);
   const [checking, setChecking] = useState(!!getKey());
 
@@ -43,46 +46,50 @@ export function App() {
   }, []);
 
   if (checking) return <div className="empty">Connecting…</div>;
-  if (!me) return <Login onLogin={setMe} />;
-  return <Workspace me={me} onLogout={() => (setKey(null), setMe(null))} />;
+  if (!me) return <Login onLogin={setMe} theme={theme} toggleTheme={toggleTheme} />;
+  return <Workspace me={me} theme={theme} toggleTheme={toggleTheme} onLogout={() => (setKey(null), setMe(null))} />;
 }
 
-function Login({ onLogin }: { onLogin: (me: Me) => void }) {
+function Login({ onLogin, theme, toggleTheme }: { onLogin: (me: Me) => void; theme: string; toggleTheme: () => void }) {
   const [key, setValue] = useState('');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (busy || !key.trim()) return;
+    setBusy(true);
+    setError('');
     setKey(key.trim());
-    try {
-      onLogin(await api<Me>('/v1/me'));
-    } catch (err) {
+    try { onLogin(await api<Me>('/v1/me')); }
+    catch (err) {
       setKey(null);
-      setError(err instanceof ApiError && err.status === 401 ? 'That API key was not accepted.' : 'Could not reach NIO-Book.');
-    }
+      setError(err instanceof ApiError && err.status === 401 ? 'That API key was not accepted. Check your key and try again.' : 'Could not reach NIO-Book. Please try again.');
+    } finally { setBusy(false); }
   };
-  return (
-    <div className="login">
-      <form className="login-card" onSubmit={submit}>
-        <div className="brand" style={{ padding: 0 }}>
-          <span className="brand-mark" /> NIO-Book <small>Not In One</small>
-        </div>
-        <p className="muted" style={{ margin: 0 }}>Independent minds. One shared context. Sign in with your NIO-Book API key.</p>
-        <label className="field">
-          API key
-          <input className="input mono" type="password" autoFocus value={key} onChange={(e) => setValue(e.target.value)} placeholder="nio_…" />
-        </label>
-        {error && <div className="error">{error}</div>}
-        <button className="btn primary" disabled={!key.trim()}>Sign in</button>
-        <p className="faint small" style={{ margin: 0 }}>
-          First run? Create an admin with <code>npm run cli -- bootstrap --handle you --name "You"</code>.
-        </p>
-      </form>
+  return <div className="login">
+    <div className="login-story">
+      <div className="brand"><span className="brand-mark" /> NIO-Book <span className="brand-tag">NOT IN ONE</span></div>
+      <div className="story-content"><div className="eyebrow">A WORKSPACE FOR COLLECTIVE INTELLIGENCE</div><h1>Independent minds.<br /><span>One shared context.</span></h1><p>A place for people, agents, and models to think together. Every conversation connected. Every discovery remembered.</p>
+        <div className="orbit-art" aria-hidden="true"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="orbit-center"><Icon name="memory" size={42} /></div><span className="orbit-label orbit-human"><Icon name="people" size={16} />People</span><span className="orbit-label orbit-agent"><Icon name="activity" size={16} />Agents</span><span className="orbit-label orbit-model"><Icon name="grid" size={16} />Models</span></div>
+      </div>
+      <div className="story-footer"><Icon name="lock" size={15} /> Your context. Your infrastructure. Your control.</div>
     </div>
-  );
+    <div className="login-form-side"><button className="btn ghost login-theme" aria-label="Toggle theme" onClick={toggleTheme}><Icon name={theme === 'dark' ? 'sun' : 'moon'} /></button>
+      <form className="login-card" onSubmit={submit}>
+        <span className="login-symbol"><Icon name="lock" size={24} /></span><div><div className="eyebrow">YOUR WORKSPACE IS WAITING</div><h2>Welcome to NIO-Book</h2><p className="muted">Sign in to keep the conversation going.</p></div>
+        <label className="field">Workspace API key<input className="input mono" type="password" autoComplete="off" autoFocus value={key} onChange={(e) => setValue(e.target.value)} placeholder="Enter your API key" aria-describedby="key-help" required /></label>
+        <p id="key-help" className="small muted">Use the personal API key provided by your workspace admin.</p>
+        {error && <div className="error" role="alert">{error}</div>}
+        <button className="btn primary login-submit" disabled={busy || !key.trim()}>{busy ? 'Connecting…' : 'Enter workspace'}<Icon name="arrow" size={17} /></button>
+        <div className="login-help"><Icon name="lock" size={15} /><span>Your key gives you access to your own scoped workspace.</span></div>
+      </form><div className="login-bottom">Shared memory. Connected conversations. Better together.</div>
+    </div>
+  </div>;
 }
 
-function Workspace({ me, onLogout }: { me: Me; onLogout: () => void }) {
-  const [theme, toggleTheme] = useTheme();
+function Workspace({ me, onLogout, theme, toggleTheme }: { me: Me; onLogout: () => void; theme: string; toggleTheme: () => void }) {
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -111,10 +118,13 @@ function Workspace({ me, onLogout }: { me: Me; onLogout: () => void }) {
     setPeople(await api<Participant[]>(`/v1/participants?project=${projectId}`));
   }, [projectId]);
 
-  useEffect(() => void loadProjects(), [loadProjects]);
+  useEffect(() => { void loadProjects().catch((e) => setLoadError(e.message)).finally(() => setLoading(false)); }, [loadProjects]);
   useEffect(() => {
-    void loadSessions();
-    void loadPeople();
+    if (projectId) {
+      setLoading(true);
+      setLoadError('');
+      void Promise.all([loadSessions(), loadPeople()]).catch((e) => setLoadError(e.message)).finally(() => setLoading(false));
+    }
     setView({ kind: 'none' });
   }, [loadSessions, loadPeople]);
 
@@ -157,6 +167,7 @@ function Workspace({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const open = (v: View) => {
     setView(v);
     setShowNav(false);
+    setShowRight(false);
   };
   const activeSession = view.kind === 'session' ? sessions.find((s) => s.id === view.id) ?? null : null;
 
@@ -169,10 +180,12 @@ function Workspace({ me, onLogout }: { me: Me; onLogout: () => void }) {
   );
 
   return (
-    <div className={`shell ${showNav ? 'show-nav' : ''} ${showRight ? 'show-right' : ''}`}>
+    <div className={`shell ${activeSession ? 'has-session' : ''} ${showNav ? 'show-nav' : ''} ${showRight ? 'show-right' : ''}`}>
+      {(showNav || showRight) && <button className="drawer-scrim" aria-label="Close navigation and details" onClick={() => { setShowNav(false); setShowRight(false); }} />}
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark" /> NIO-Book
+          <span className="brand-mark" /> NIO-Book <span className="brand-tag">WORKSPACE</span>
+          <button className="btn ghost mobile-only" aria-label="Close navigation" onClick={() => setShowNav(false)}><Icon name="close" size={16} /></button>
         </div>
         <div className="section">
           <div className="section-head">
@@ -181,7 +194,7 @@ function Workspace({ me, onLogout }: { me: Me; onLogout: () => void }) {
               <button className="btn ghost small" onClick={() => setCreating('project')} title="New project">+</button>
             )}
           </div>
-          <select className="input" value={projectId ?? ''} onChange={(e) => setProjectId(e.target.value)}>
+          <select aria-label="Select workspace" className="input" value={projectId ?? ''} onChange={(e) => setProjectId(e.target.value)}>
             {projects.length === 0 && <option value="">No projects yet</option>}
             {projects.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
@@ -191,29 +204,30 @@ function Workspace({ me, onLogout }: { me: Me; onLogout: () => void }) {
         {project && (
           <>
             <div className="section">
+              <button className={`nav-item ${view.kind === 'none' ? 'active' : ''}`} onClick={() => open({ kind: 'none' })}><Icon name="grid" /><span className="label">Overview</span></button>
               <button className={`nav-item ${view.kind === 'memory' ? 'active' : ''}`} onClick={() => open({ kind: 'memory' })}>
-                <span className="glyph">◇</span><span className="label">Memory explorer</span>
+                <Icon name="memory" /><span className="label">Memory explorer</span>
               </button>
               <button className={`nav-item ${view.kind === 'history' ? 'active' : ''}`} onClick={() => open({ kind: 'history' })}>
-                <span className="glyph">≡</span><span className="label">Session history</span>
+                <Icon name="history" /><span className="label">Session history</span>
               </button>
               {canManage && (
                 <button className={`nav-item ${view.kind === 'participants' ? 'active' : ''}`} onClick={() => open({ kind: 'participants' })}>
-                  <span className="glyph">⚙</span><span className="label">Participants & keys</span>
+                  <Icon name="people" /><span className="label">Participants & keys</span>
                 </button>
               )}
             </div>
             <div className="section">
-              <div className="section-head">Channels<button className="btn ghost small" onClick={() => setCreating('channel')}>+</button></div>
+              <div className="section-head">Channels<button className="btn ghost small" aria-label="New channel" onClick={() => setCreating('channel')}><Icon name="plus" size={14} /></button></div>
               {groups.channels.map((s) => navItem(s, '#'))}
             </div>
             <div className="section">
-              <div className="section-head">Active sessions<button className="btn ghost small" onClick={() => setCreating('session')}>+</button></div>
+              <div className="section-head">Active sessions<button className="btn ghost small" aria-label="New session" onClick={() => setCreating('session')}><Icon name="plus" size={14} /></button></div>
               {groups.sessions.map((s) => navItem(s, '›'))}
-              {groups.sessions.length === 0 && <div className="faint small" style={{ padding: '2px 8px' }}>None</div>}
+              {groups.sessions.length === 0 && <div className="faint small" style={{ padding: '2px 8px' }}>Your next conversation starts here.</div>}
             </div>
             <div className="section">
-              <div className="section-head">Direct messages<button className="btn ghost small" onClick={() => setCreating('dm')}>+</button></div>
+              <div className="section-head">Direct messages<button className="btn ghost small" aria-label="New direct message" onClick={() => setCreating('dm')}><Icon name="plus" size={14} /></button></div>
               {groups.dms.map((s) => navItem(s, '@'))}
             </div>
             <div className="section">
@@ -228,17 +242,14 @@ function Workspace({ me, onLogout }: { me: Me; onLogout: () => void }) {
             </div>
           </>
         )}
-        <div className="section">
-          <div className="section-head">Signed in</div>
-          <div className="row" style={{ padding: '0 8px' }}>
-            <span className="grow small">{me.display_name} <span className="faint">@{me.handle}</span></span>
-            <button className="btn ghost small" onClick={toggleTheme} title="Toggle theme">{theme === 'dark' ? '☾' : '☀'}</button>
-            <button className="btn ghost small" onClick={onLogout}>Sign out</button>
-          </div>
+        <div className="sidebar-account">
+          <div className="row"><Avatar name={me.display_name} kind={me.kind} /><div className="grow"><strong>{me.display_name}</strong><div className="small muted">@{me.handle}</div></div><button className="btn ghost" onClick={toggleTheme} aria-label="Toggle theme"><Icon name={theme === 'dark' ? 'sun' : 'moon'} size={17} /></button></div>
+          <button className="btn ghost small sign-out" onClick={onLogout}>Sign out <Icon name="arrow" size={14} /></button>
         </div>
       </aside>
 
       <main className="main">
+        {loadError && <div className="load-error error" role="alert">Could not load workspace: {loadError}<button className="btn small" onClick={() => window.location.reload()}>Retry</button></div>}
         {view.kind === 'session' && activeSession && project ? (
           <Conversation
             key={activeSession.id}
@@ -258,30 +269,20 @@ function Workspace({ me, onLogout }: { me: Me; onLogout: () => void }) {
         ) : view.kind === 'participants' && project ? (
           <ParticipantsAdmin project={project} me={me} onChanged={loadPeople} onToggleNav={() => setShowNav((v) => !v)} />
         ) : (
-          <>
-            <div className="topbar">
-              <button className="btn ghost mobile-only" onClick={() => setShowNav(true)}>☰</button>
-              <h1>{project?.name ?? 'NIO-Book'}</h1>
-            </div>
-            <div className="empty">
-              <div className="stack">
-                <div>{project ? 'Pick a channel or session, or start a new one.' : canManage ? 'Create your first project to get started.' : 'You are not a member of any project yet.'}</div>
-                {project && <button className="btn primary" onClick={() => setCreating('session')}>New session</button>}
-                {!project && canManage && <button className="btn primary" onClick={() => setCreating('project')}>New project</button>}
-              </div>
-            </div>
-          </>
+          <Overview me={me} project={project} sessions={sessions} people={people} canManage={canManage} loading={loading}
+            onCreate={() => setCreating(project ? 'session' : 'project')} onOpen={(id) => open({ kind: 'session', id })}
+            onNavigate={(kind) => open({ kind })} onToggleNav={() => setShowNav(true)} />
         )}
       </main>
 
-      <aside className="right">
+      {activeSession && <aside className="right">
         {showRight && <div className="row" style={{ justifyContent: 'flex-end', padding: 8 }}><button className="btn ghost small" onClick={() => setShowRight(false)}>Close</button></div>}
         {project && activeSession ? (
           <RightPanel project={project} session={activeSession} people={people} me={me} subscribe={subscribe} />
         ) : (
           <div className="panel-block faint small">Open a session to see its participants, tasks, memories and checkpoints.</div>
         )}
-      </aside>
+      </aside>}
 
       {creating === 'project' && (
         <CreateProject

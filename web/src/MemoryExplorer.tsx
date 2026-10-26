@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import { useCallback, useEffect, useState } from 'react';
 import { api, type Me, type Memory, type Project } from './api';
 import type { EventListener } from './App';
@@ -44,17 +45,17 @@ export function MemoryExplorer({ project, me, subscribe, onToggleNav }: { projec
   return (
     <>
       <div className="topbar">
-        <button className="btn ghost mobile-only" onClick={onToggleNav}>☰</button>
+        <button className="btn ghost mobile-only" aria-label="Open navigation" onClick={onToggleNav}><Icon name="menu" /></button>
         <h1 className="grow">Memory explorer</h1>
         <button className="btn primary small" onClick={() => setEditing('new')}>New memory</button>
       </div>
       <div className="toolbar">
-        <input className="input grow" placeholder="Search memory" value={query} onChange={(e) => setQuery(e.target.value)} />
-        <select className="input" value={scope} onChange={(e) => setScope(e.target.value)}>
+        <input className="input grow" aria-label="Search memory" placeholder="Search memory" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <select aria-label="Memory scope" className="input" value={scope} onChange={(e) => setScope(e.target.value)}>
           <option value="">Project + global</option>
           {['project', 'session', 'global', 'agent'].map((s) => <option key={s} value={s}>{s === 'agent' ? 'my private' : s}</option>)}
         </select>
-        <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
+        <select aria-label="Memory status" className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
           {['active', 'candidate', 'superseded', 'rejected', 'deleted', 'any'].map((s) => <option key={s}>{s}</option>)}
         </select>
       </div>
@@ -62,7 +63,7 @@ export function MemoryExplorer({ project, me, subscribe, onToggleNav }: { projec
         <div className="list">
           {items.length === 0 && <div className="empty">No memories.</div>}
           {items.map((m) => (
-            <div key={m.id} className={`list-item ${selected?.id === m.id ? 'active' : ''}`} onClick={() => setSelected(m)}>
+            <button key={m.id} className={`list-item ${selected?.id === m.id ? 'active' : ''}`} onClick={() => setSelected(m)}>
               <div className="row">
                 <span className="grow" style={{ fontWeight: 600 }}>{m.title}</span>
                 <span className="badge">{m.scope}</span>
@@ -73,7 +74,7 @@ export function MemoryExplorer({ project, me, subscribe, onToggleNav }: { projec
                 v{m.version} · {timeAgo(m.updated_at)}
                 {m.flags.map((f) => <span key={f} className="badge warn">{f.replace('_', ' ')}</span>)}
               </div>
-            </div>
+            </button>
           ))}
         </div>
         <div className="detail">
@@ -180,7 +181,7 @@ function EditMemory({ project, memory, onClose, onSaved }: { project: Project; m
       {!memory && (
         <label className="field">
           Scope
-          <select className="input" value={scope} onChange={(e) => setScope(e.target.value as Memory['scope'])}>
+          <select aria-label="Memory scope" className="input" value={scope} onChange={(e) => setScope(e.target.value as Memory['scope'])}>
             <option value="project">Project ({project.name})</option>
             <option value="agent">Private to me</option>
             <option value="global">Global (admins)</option>

@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import { useCallback, useEffect, useState } from 'react';
 import { api, type Me, type Participant, type Project } from './api';
 import { KindBadge, timeAgo } from './ui';
@@ -53,7 +54,7 @@ export function ParticipantsAdmin({ project, me, onChanged, onToggleNav }: { pro
   return (
     <>
       <div className="topbar">
-        <button className="btn ghost mobile-only" onClick={onToggleNav}>☰</button>
+        <button className="btn ghost mobile-only" aria-label="Open navigation" onClick={onToggleNav}><Icon name="menu" /></button>
         <h1>Participants & keys</h1>
       </div>
       <div className="page stack" style={{ alignContent: 'start' }}>
