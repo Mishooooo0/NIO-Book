@@ -1,0 +1,13 @@
+{
+  "name": "nio-book",
+  "private": true,
+  "version": "0.1.0",
+  "description": "NIO-Book — shared memory, sessions and multi-agent collaboration workspace",
+  "workspaces": ["server", "web"],
+  "scripts": {
+    "build": "npm run build -w web && npm run build -w server",
+    "dev": "npm run dev -w server",
+    "test": "npm test -w server",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w web"
+  }
+}
